@@ -43,4 +43,6 @@ h1 { font-size: clamp(48px,6.4vw,89px); font-weight: 500; letter-spacing: -.075e
 .authorization-fieldset .field-error { margin: -5px 0 13px 25px; }
 .form-disclaimer { border-top: 1px solid var(--line); color: #718b96; font-size: 10px; line-height: 1.65; margin: 24px 0 0; padding-top: 17px; }
 .success-note { color: #718b96 !important; font-size: 10px !important; line-height: 1.6 !important; margin-bottom: 24px !important; max-width: 390px !important; }
+.submit-error { background: rgba(216,108,120,.08); border: 1px solid rgba(216,108,120,.45); border-radius: 3px; color: #ffadb3; font-size: 11px; line-height: 1.5; margin: -8px 0 20px; padding: 11px 12px; }
+.button:disabled { cursor: wait; opacity: .65; transform: none; }
 @media (max-width:640px) { .assessment-form-grid { grid-template-columns: 1fr; }.form-field-full, .authorization-fieldset, .form-submit { grid-column: auto; }.authorization-fieldset { grid-column: 1; } }

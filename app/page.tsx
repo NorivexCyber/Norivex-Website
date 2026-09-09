@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowUpRight, Check, ChevronDown, CircleCheck, ExternalLink, Fingerprint, LockKeyhole, Menu, Radar, ShieldCheck, X, Zap } from 'lucide-react';
+import { type AssessmentFieldErrors, type AssessmentPayload, validateAssessmentPayload } from '../lib/assessment';
 
 const services = [
   { number: '01', icon: Radar, title: 'Basic security assessments', copy: 'A clear look at the exposed, everyday pieces of your business — from domain posture to account hygiene.', items: ['Public-facing exposure review', 'MFA, patching & backup check', 'Prioritized written report'] },
@@ -23,55 +24,63 @@ function FounderPortrait() {
   return <div className="founder-portrait-frame"><div className="portrait-media"><img src="/connor-headshot.png" alt="Connor, Founder of Norivex Cyber" loading="lazy" decoding="async" /></div><div className="portrait-caption"><span>FOUNDER / NORIVEX CYBER</span><span>MARTINSVILLE, VIRGINIA</span></div></div>;
 }
 
-type FieldErrors = Record<string, string>;
-
 function getFormValue(data: FormData, name: string) {
   const value = data.get(name);
   return typeof value === 'string' ? value.trim() : '';
 }
 
 function AssessmentForm() {
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [errors, setErrors] = useState<AssessmentFieldErrors>({});
+  const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [submitError, setSubmitError] = useState('');
 
-  function handleAssessmentSubmit(event: FormSubmitEvent) {
+  async function handleAssessmentSubmit(event: FormSubmitEvent) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const nextErrors: FieldErrors = {};
-    const requiredFields = [
-      ['fullName', 'Full name'],
-      ['businessName', 'Business name'],
-      ['workEmail', 'Work email'],
-      ['website', 'Business website/domain'],
-      ['industry', 'Business type or industry'],
-      ['companySize', 'Approximate company size'],
-      ['reviewed', 'What they would like reviewed'],
-      ['contactMethod', 'Preferred contact method'],
-      ['message', 'Short message or additional context'],
-    ];
-
-    requiredFields.forEach(([name, label]) => {
-      if (!getFormValue(data, name)) nextErrors[name] = `${label} is required.`;
-    });
-
-    const email = getFormValue(data, 'workEmail');
-    if (email && !/^\S+@\S+\.\S+$/.test(email)) nextErrors.workEmail = 'Enter a valid work email.';
-    if (data.get('scopeAuthorization') !== 'on') nextErrors.scopeAuthorization = 'Please confirm the assessment authorization terms.';
-    if (data.get('businessAuthorization') !== 'on') nextErrors.businessAuthorization = 'Please confirm that you are authorized to request this assessment.';
-
+    const payload: AssessmentPayload = {
+      fullName: getFormValue(data, 'fullName'),
+      businessName: getFormValue(data, 'businessName'),
+      workEmail: getFormValue(data, 'workEmail'),
+      phone: getFormValue(data, 'phone'),
+      website: getFormValue(data, 'website'),
+      industry: getFormValue(data, 'industry'),
+      companySize: getFormValue(data, 'companySize'),
+      reviewed: getFormValue(data, 'reviewed'),
+      contactMethod: getFormValue(data, 'contactMethod'),
+      message: getFormValue(data, 'message'),
+      scopeAuthorization: data.get('scopeAuthorization') === 'on',
+      businessAuthorization: data.get('businessAuthorization') === 'on',
+    };
+    const nextErrors = validateAssessmentPayload(payload);
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length === 0) setSubmitted(true);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setStatus('sending');
+    setSubmitError('');
+
+    try {
+      const response = await fetch('/api/assessment-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const result = (await response.json().catch(() => ({}))) as { error?: string; fields?: AssessmentFieldErrors };
+      if (!response.ok) {
+        if (result.fields) setErrors(result.fields);
+        throw new Error(result.error ?? 'Something went wrong while sending your request. Please try again or contact me directly.');
+      }
+      setStatus('success');
+    } catch (error) {
+      setStatus('error');
+      setSubmitError(error instanceof Error ? error.message : 'Something went wrong while sending your request. Please try again or contact me directly.');
+    }
   }
 
   function errorFor(name: string) {
     return errors[name] ? <p id={`${name}-error`} className="field-error" role="alert">{errors[name]}</p> : null;
   }
 
-  if (submitted) {
-    return <div className="contact-form-card success-state"><span className="success-icon"><Check size={23} /></span><h3>Thanks — your request has been received.</h3><p>I’ll review the details and follow up to discuss scope and next steps.</p><p className="success-note">This is currently a front-end confirmation. No email was sent; the form is ready to connect to an API route, email service, or database.</p><button className="button button-outline" type="button" onClick={() => { setSubmitted(false); setErrors({}); }}>Submit another request</button></div>;
+  if (status === 'success') {
+    return <div className="contact-form-card success-state"><span className="success-icon"><Check size={23} /></span><h3>Thanks — your request has been received.</h3><p>I’ll review the details and follow up to discuss scope and next steps.</p><button className="button button-outline" type="button" onClick={() => { setStatus('idle'); setErrors({}); }}>Submit another request</button></div>;
   }
 
-  return <div className="contact-form-card"><form noValidate onSubmit={handleAssessmentSubmit}><div className="form-heading"><span>Request a Free Security Assessment</span><span className="required-note">Required fields marked</span></div><div className="assessment-form-grid"><label className="form-field">Full name<input required name="fullName" autoComplete="name" aria-invalid={Boolean(errors.fullName)} aria-describedby={errors.fullName ? 'fullName-error' : undefined} />{errorFor('fullName')}</label><label className="form-field">Business name<input required name="businessName" autoComplete="organization" aria-invalid={Boolean(errors.businessName)} aria-describedby={errors.businessName ? 'businessName-error' : undefined} />{errorFor('businessName')}</label><label className="form-field">Work email<input required type="email" name="workEmail" autoComplete="email" aria-invalid={Boolean(errors.workEmail)} aria-describedby={errors.workEmail ? 'workEmail-error' : undefined} />{errorFor('workEmail')}</label><label className="form-field">Phone number <span className="optional-label">optional</span><input type="tel" name="phone" autoComplete="tel" /></label><label className="form-field form-field-full">Business website/domain<input required name="website" inputMode="url" placeholder="yourbusiness.com" aria-invalid={Boolean(errors.website)} aria-describedby={errors.website ? 'website-error' : undefined} />{errorFor('website')}</label><label className="form-field">Business type or industry<input required name="industry" placeholder="e.g. retail, construction, nonprofit" aria-invalid={Boolean(errors.industry)} aria-describedby={errors.industry ? 'industry-error' : undefined} />{errorFor('industry')}</label><label className="form-field">Approximate company size<select required name="companySize" defaultValue="" aria-invalid={Boolean(errors.companySize)} aria-describedby={errors.companySize ? 'companySize-error' : undefined}><option value="" disabled>Select one</option><option>Just me</option><option>2–10 employees</option><option>11–50 employees</option><option>51–250 employees</option><option>251+ employees</option></select>{errorFor('companySize')}</label><label className="form-field">What they would like reviewed<select required name="reviewed" defaultValue="" aria-invalid={Boolean(errors.reviewed)} aria-describedby={errors.reviewed ? 'reviewed-error' : undefined}><option value="" disabled>Select one</option><option>Public-facing website</option><option>Publicly accessible systems</option><option>Email/domain configuration</option><option>Basic security hygiene</option><option>Source code review, only if I own/provide the code</option><option>General security consultation</option><option>Not sure yet</option></select>{errorFor('reviewed')}</label><label className="form-field">Preferred contact method<select required name="contactMethod" defaultValue="" aria-invalid={Boolean(errors.contactMethod)} aria-describedby={errors.contactMethod ? 'contactMethod-error' : undefined}><option value="" disabled>Select one</option><option>Email</option><option>Phone</option><option>Either email or phone</option></select>{errorFor('contactMethod')}</label><label className="form-field form-field-full">Short message or additional context<textarea required name="message" rows={4} placeholder="What prompted you to reach out?" aria-invalid={Boolean(errors.message)} aria-describedby={errors.message ? 'message-error' : undefined} />{errorFor('message')}</label><fieldset className="authorization-fieldset"><legend>Authorization and scope</legend><label className="consent"><input required type="checkbox" name="scopeAuthorization" aria-invalid={Boolean(errors.scopeAuthorization)} aria-describedby={errors.scopeAuthorization ? 'scopeAuthorization-error' : undefined} /><span>I understand that submitting this form does not authorize security testing. Any assessment will only begin after scope and written authorization are agreed upon.</span></label>{errorFor('scopeAuthorization')}<label className="consent"><input required type="checkbox" name="businessAuthorization" aria-invalid={Boolean(errors.businessAuthorization)} aria-describedby={errors.businessAuthorization ? 'businessAuthorization-error' : undefined} /><span>I confirm that I am authorized to request an assessment for this business or system.</span></label>{errorFor('businessAuthorization')}</fieldset><button className="button button-primary form-submit" type="submit">Request a Free Security Assessment <ArrowUpRight size={17} /></button></div></form><p className="form-disclaimer">Norivex Cyber currently provides introductory, permission-based security assessments focused on identifying visible risks and practical improvements. No exploitation, privilege escalation, destructive testing, or intrusive activity will be performed without explicit written scope and authorization.</p></div>;
+  return <div className="contact-form-card"><form noValidate onSubmit={handleAssessmentSubmit}><div className="form-heading"><span>Request a Free Security Assessment</span><span className="required-note">Required fields marked</span></div>{status === 'error' ? <p className="submit-error" role="alert">{submitError}</p> : null}<div className="assessment-form-grid"><label className="form-field">Full name<input required name="fullName" autoComplete="name" aria-invalid={Boolean(errors.fullName)} aria-describedby={errors.fullName ? 'fullName-error' : undefined} />{errorFor('fullName')}</label><label className="form-field">Business name<input required name="businessName" autoComplete="organization" aria-invalid={Boolean(errors.businessName)} aria-describedby={errors.businessName ? 'businessName-error' : undefined} />{errorFor('businessName')}</label><label className="form-field">Work email<input required type="email" name="workEmail" autoComplete="email" aria-invalid={Boolean(errors.workEmail)} aria-describedby={errors.workEmail ? 'workEmail-error' : undefined} />{errorFor('workEmail')}</label><label className="form-field">Phone number <span className="optional-label">optional</span><input type="tel" name="phone" autoComplete="tel" /></label><label className="form-field form-field-full">Business website/domain<input required name="website" inputMode="url" placeholder="yourbusiness.com" aria-invalid={Boolean(errors.website)} aria-describedby={errors.website ? 'website-error' : undefined} />{errorFor('website')}</label><label className="form-field">Business type or industry<input required name="industry" placeholder="e.g. retail, construction, nonprofit" aria-invalid={Boolean(errors.industry)} aria-describedby={errors.industry ? 'industry-error' : undefined} />{errorFor('industry')}</label><label className="form-field">Approximate company size<select required name="companySize" defaultValue="" aria-invalid={Boolean(errors.companySize)} aria-describedby={errors.companySize ? 'companySize-error' : undefined}><option value="" disabled>Select one</option><option>Just me</option><option>2–10 employees</option><option>11–50 employees</option><option>51–250 employees</option><option>251+ employees</option></select>{errorFor('companySize')}</label><label className="form-field">What they would like reviewed<select required name="reviewed" defaultValue="" aria-invalid={Boolean(errors.reviewed)} aria-describedby={errors.reviewed ? 'reviewed-error' : undefined}><option value="" disabled>Select one</option><option>Public-facing website</option><option>Publicly accessible systems</option><option>Email/domain configuration</option><option>Basic security hygiene</option><option>Source code review, only if I own/provide the code</option><option>General security consultation</option><option>Not sure yet</option></select>{errorFor('reviewed')}</label><label className="form-field">Preferred contact method<select required name="contactMethod" defaultValue="" aria-invalid={Boolean(errors.contactMethod)} aria-describedby={errors.contactMethod ? 'contactMethod-error' : undefined}><option value="" disabled>Select one</option><option>Email</option><option>Phone</option><option>Either email or phone</option></select>{errorFor('contactMethod')}</label><label className="form-field form-field-full">Short message or additional context<textarea required name="message" rows={4} placeholder="What prompted you to reach out?" aria-invalid={Boolean(errors.message)} aria-describedby={errors.message ? 'message-error' : undefined} />{errorFor('message')}</label><fieldset className="authorization-fieldset"><legend>Authorization and scope</legend><label className="consent"><input required type="checkbox" name="scopeAuthorization" aria-invalid={Boolean(errors.scopeAuthorization)} aria-describedby={errors.scopeAuthorization ? 'scopeAuthorization-error' : undefined} /><span>I understand that submitting this form does not authorize security testing. Any assessment will only begin after scope and written authorization are agreed upon.</span></label>{errorFor('scopeAuthorization')}<label className="consent"><input required type="checkbox" name="businessAuthorization" aria-invalid={Boolean(errors.businessAuthorization)} aria-describedby={errors.businessAuthorization ? 'businessAuthorization-error' : undefined} /><span>I confirm that I am authorized to request an assessment for this business or system.</span></label>{errorFor('businessAuthorization')}</fieldset><button className="button button-primary form-submit" type="submit" disabled={status === 'sending'} aria-busy={status === 'sending'}>{status === 'sending' ? 'Sending request...' : <>Request a Free Security Assessment <ArrowUpRight size={17} /></>}</button></div></form><p className="form-disclaimer">Norivex Cyber currently provides introductory, permission-based security assessments focused on identifying visible risks and practical improvements. No exploitation, privilege escalation, destructive testing, or intrusive activity will be performed without explicit written scope and authorization.</p></div>;
 }
 
 export default function Home() {
