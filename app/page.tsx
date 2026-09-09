@@ -15,7 +15,7 @@ const steps = [
   ['03', 'Make it useful', 'You receive a concise report with clear priorities, context, and practical recommendations — not a wall of fear.'],
 ];
 
-type FormSubmitEvent = { preventDefault: () => void };
+type FormSubmitEvent = { preventDefault: () => void; currentTarget: HTMLFormElement };
 
 function Reveal({ children, className = '' }: { children: React.ReactNode; className?: string }) { return <div className={`reveal ${className}`}>{children}</div>; }
 
@@ -23,11 +23,59 @@ function FounderPortrait() {
   return <div className="founder-portrait-frame"><div className="portrait-media"><img src="/connor-headshot.png" alt="Connor, Founder of Norivex Cyber" loading="lazy" decoding="async" /></div><div className="portrait-caption"><span>FOUNDER / NORIVEX CYBER</span><span>MARTINSVILLE, VIRGINIA</span></div></div>;
 }
 
+type FieldErrors = Record<string, string>;
+
+function getFormValue(data: FormData, name: string) {
+  const value = data.get(name);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function AssessmentForm() {
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [submitted, setSubmitted] = useState(false);
+
+  function handleAssessmentSubmit(event: FormSubmitEvent) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const nextErrors: FieldErrors = {};
+    const requiredFields = [
+      ['fullName', 'Full name'],
+      ['businessName', 'Business name'],
+      ['workEmail', 'Work email'],
+      ['website', 'Business website/domain'],
+      ['industry', 'Business type or industry'],
+      ['companySize', 'Approximate company size'],
+      ['reviewed', 'What they would like reviewed'],
+      ['contactMethod', 'Preferred contact method'],
+      ['message', 'Short message or additional context'],
+    ];
+
+    requiredFields.forEach(([name, label]) => {
+      if (!getFormValue(data, name)) nextErrors[name] = `${label} is required.`;
+    });
+
+    const email = getFormValue(data, 'workEmail');
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) nextErrors.workEmail = 'Enter a valid work email.';
+    if (data.get('scopeAuthorization') !== 'on') nextErrors.scopeAuthorization = 'Please confirm the assessment authorization terms.';
+    if (data.get('businessAuthorization') !== 'on') nextErrors.businessAuthorization = 'Please confirm that you are authorized to request this assessment.';
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length === 0) setSubmitted(true);
+  }
+
+  function errorFor(name: string) {
+    return errors[name] ? <p id={`${name}-error`} className="field-error" role="alert">{errors[name]}</p> : null;
+  }
+
+  if (submitted) {
+    return <div className="contact-form-card success-state"><span className="success-icon"><Check size={23} /></span><h3>Thanks — your request has been received.</h3><p>I’ll review the details and follow up to discuss scope and next steps.</p><p className="success-note">This is currently a front-end confirmation. No email was sent; the form is ready to connect to an API route, email service, or database.</p><button className="button button-outline" type="button" onClick={() => { setSubmitted(false); setErrors({}); }}>Submit another request</button></div>;
+  }
+
+  return <div className="contact-form-card"><form noValidate onSubmit={handleAssessmentSubmit}><div className="form-heading"><span>Request a Free Security Assessment</span><span className="required-note">Required fields marked</span></div><div className="assessment-form-grid"><label className="form-field">Full name<input required name="fullName" autoComplete="name" aria-invalid={Boolean(errors.fullName)} aria-describedby={errors.fullName ? 'fullName-error' : undefined} />{errorFor('fullName')}</label><label className="form-field">Business name<input required name="businessName" autoComplete="organization" aria-invalid={Boolean(errors.businessName)} aria-describedby={errors.businessName ? 'businessName-error' : undefined} />{errorFor('businessName')}</label><label className="form-field">Work email<input required type="email" name="workEmail" autoComplete="email" aria-invalid={Boolean(errors.workEmail)} aria-describedby={errors.workEmail ? 'workEmail-error' : undefined} />{errorFor('workEmail')}</label><label className="form-field">Phone number <span className="optional-label">optional</span><input type="tel" name="phone" autoComplete="tel" /></label><label className="form-field form-field-full">Business website/domain<input required name="website" inputMode="url" placeholder="yourbusiness.com" aria-invalid={Boolean(errors.website)} aria-describedby={errors.website ? 'website-error' : undefined} />{errorFor('website')}</label><label className="form-field">Business type or industry<input required name="industry" placeholder="e.g. retail, construction, nonprofit" aria-invalid={Boolean(errors.industry)} aria-describedby={errors.industry ? 'industry-error' : undefined} />{errorFor('industry')}</label><label className="form-field">Approximate company size<select required name="companySize" defaultValue="" aria-invalid={Boolean(errors.companySize)} aria-describedby={errors.companySize ? 'companySize-error' : undefined}><option value="" disabled>Select one</option><option>Just me</option><option>2–10 employees</option><option>11–50 employees</option><option>51–250 employees</option><option>251+ employees</option></select>{errorFor('companySize')}</label><label className="form-field">What they would like reviewed<select required name="reviewed" defaultValue="" aria-invalid={Boolean(errors.reviewed)} aria-describedby={errors.reviewed ? 'reviewed-error' : undefined}><option value="" disabled>Select one</option><option>Public-facing website</option><option>Publicly accessible systems</option><option>Email/domain configuration</option><option>Basic security hygiene</option><option>Source code review, only if I own/provide the code</option><option>General security consultation</option><option>Not sure yet</option></select>{errorFor('reviewed')}</label><label className="form-field">Preferred contact method<select required name="contactMethod" defaultValue="" aria-invalid={Boolean(errors.contactMethod)} aria-describedby={errors.contactMethod ? 'contactMethod-error' : undefined}><option value="" disabled>Select one</option><option>Email</option><option>Phone</option><option>Either email or phone</option></select>{errorFor('contactMethod')}</label><label className="form-field form-field-full">Short message or additional context<textarea required name="message" rows={4} placeholder="What prompted you to reach out?" aria-invalid={Boolean(errors.message)} aria-describedby={errors.message ? 'message-error' : undefined} />{errorFor('message')}</label><fieldset className="authorization-fieldset"><legend>Authorization and scope</legend><label className="consent"><input required type="checkbox" name="scopeAuthorization" aria-invalid={Boolean(errors.scopeAuthorization)} aria-describedby={errors.scopeAuthorization ? 'scopeAuthorization-error' : undefined} /><span>I understand that submitting this form does not authorize security testing. Any assessment will only begin after scope and written authorization are agreed upon.</span></label>{errorFor('scopeAuthorization')}<label className="consent"><input required type="checkbox" name="businessAuthorization" aria-invalid={Boolean(errors.businessAuthorization)} aria-describedby={errors.businessAuthorization ? 'businessAuthorization-error' : undefined} /><span>I confirm that I am authorized to request an assessment for this business or system.</span></label>{errorFor('businessAuthorization')}</fieldset><button className="button button-primary form-submit" type="submit">Request a Free Security Assessment <ArrowUpRight size={17} /></button></div></form><p className="form-disclaimer">Norivex Cyber currently provides introductory, permission-based security assessments focused on identifying visible risks and practical improvements. No exploitation, privilege escalation, destructive testing, or intrusive activity will be performed without explicit written scope and authorization.</p></div>;
+}
+
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [sent, setSent] = useState(false);
-
-  function handleSubmit(event: FormSubmitEvent) { event.preventDefault(); setSent(true); }
 
   return (
     <main className="site-shell">
@@ -44,7 +92,7 @@ export default function Home() {
           <Reveal><p className="eyebrow"><span className="status-dot" /> Practical security for growing businesses</p></Reveal>
           <Reveal className="delay-1"><h1>See what’s exposed.<br /><em>Know what to do next.</em></h1></Reveal>
           <Reveal className="delay-2"><p className="hero-sub">Norivex Cyber provides straightforward, permission-based security assessments for local businesses — at no cost while I build practical experience.</p></Reveal>
-          <Reveal className="delay-3"><div className="hero-actions"><a className="button button-primary" href="#contact">Request a free assessment <ArrowUpRight size={17} /></a><a className="text-link" href="#services">Explore services <ChevronDown size={16} /></a></div></Reveal>
+          <Reveal className="delay-3"><div className="hero-actions"><a className="button button-primary" href="#contact">Request a Free Security Assessment <ArrowUpRight size={17} /></a><a className="text-link" href="#services">Explore services <ChevronDown size={16} /></a></div></Reveal>
           <Reveal className="delay-4"><p className="hero-note"><LockKeyhole size={14} /> Safe, non-disruptive & confidential</p></Reveal>
         </div>
         <Reveal className="hero-visual delay-2"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="orbit orbit-three" /><div className="visual-grid" /><div className="visual-core"><span className="core-pulse" /><ShieldCheck size={34} strokeWidth={1.4} /></div><div className="signal signal-top"><span className="signal-line" /><span>surface map</span><strong>ready</strong></div><div className="signal signal-right"><span className="signal-line" /><span>permission</span><strong className="cyan">required</strong></div><div className="signal signal-bottom"><span className="signal-line" /><span>report</span><strong>actionable</strong></div><div className="coordinates">36°43&apos; N&nbsp;&nbsp; 81°06&apos; W</div></Reveal>
@@ -58,7 +106,7 @@ export default function Home() {
 
       <section id="about" className="section-pad about-section"><Reveal className="about-panel"><div className="about-badge"><Zap size={18} /> Meet the founder <span className="about-location">Rooted in Martinsville, Virginia</span></div><div className="founder-layout"><FounderPortrait /><div className="founder-copy"><p className="founder-lede">Hi, I’m Connor — founder of Norivex Cyber.</p><p>I grew up in Martinsville, Virginia, and graduated from Martinsville High School in 2025. During that time, I played basketball and stayed involved in the community through local volunteering, including the Martinsville-Henry County Warming Shelter and community outreach events.</p><p>After high school, I attended Radford University to study cybersecurity. I’ve continued building my skills through independent study, hands-on labs, security research, and practical projects.</p><p>I started Norivex Cyber to help local businesses better understand their security risks and receive clear, practical guidance without unnecessary jargon. I currently offer free, permission-based introductory security assessments while continuing my own training and working toward the TryHackMe SEC-0 certification.</p><p>Long term, I hope to build a career in cybersecurity while continuing to help organizations protect the systems and communities they depend on.</p><a className="text-link" href="#contact">Start with a conversation <ArrowUpRight size={16} /></a></div></div></Reveal></section>
 
-      <section id="contact" className="contact-section section-pad"><div className="contact-grid"><Reveal><div className="section-kicker"><span>Start here</span><span className="kicker-line" /></div><h2>Let’s make security<br /><em>less intimidating.</em></h2><p className="contact-intro">Tell me a little about your business and what you’d like to understand better. There’s no cost and no obligation.</p><div className="contact-details"><a href="tel:+12768060921"><span>Phone</span>276-806-0921</a><a href="mailto:hello@norivexcyber.com"><span>Email</span>hello@norivexcyber.com</a></div><div className="social-links"><a href="#contact" aria-label="Norivex Cyber on LinkedIn"><ExternalLink size={17} /> LinkedIn</a><a href="#contact" aria-label="Norivex Cyber on GitHub"><ExternalLink size={17} /> GitHub</a></div></Reveal><Reveal className="delay-2"><div className="contact-form-card">{sent ? <div className="success-state"><span className="success-icon"><Check size={23} /></span><h3>Thanks — message received.</h3><p>This demo form is ready to connect to your preferred inbox or form service. For now, you can also reach Connor directly by phone or email.</p><button className="button button-outline" type="button" onClick={() => setSent(false)}>Send another message</button></div> : <form onSubmit={handleSubmit}><div className="form-heading"><span>Free assessment inquiry</span><span className="required-note">All fields required</span></div><label>Name<input required name="name" placeholder="Your name" /></label><label>Business email<input required type="email" name="email" placeholder="you@business.com" /></label><label>What would you like to assess?<textarea required name="message" rows={4} placeholder="A website, domain, account setup, or general security questions..." /></label><label className="consent"><input required type="checkbox" name="permission" /><span>I understand this is an introductory conversation and no assessment begins without written permission and an agreed scope.</span></label><button className="button button-primary form-submit" type="submit">Request a conversation <ArrowUpRight size={17} /></button></form>}</div></Reveal></div></section>
+      <section id="contact" className="contact-section section-pad"><div className="contact-grid"><Reveal><div className="section-kicker"><span>Start here</span><span className="kicker-line" /></div><h2>Request a free<br /><em>security assessment.</em></h2><p className="contact-intro">Share a little about your business and what you would like reviewed. There’s no cost and no obligation.</p><div className="contact-details"><a href="tel:+12768060921"><span>Phone</span>276-806-0921</a><a href="mailto:hello@norivexcyber.com"><span>Email</span>hello@norivexcyber.com</a></div><div className="social-links"><a href="#contact" aria-label="Norivex Cyber on LinkedIn"><ExternalLink size={17} /> LinkedIn</a><a href="#contact" aria-label="Norivex Cyber on GitHub"><ExternalLink size={17} /> GitHub</a></div></Reveal><Reveal className="delay-2"><AssessmentForm /></Reveal></div></section>
 
       <footer className="footer section-pad"><a className="brand" href="#top"><span className="brand-mark" aria-hidden="true"><span /></span><span>Norivex<span className="brand-muted"> Cyber</span></span></a><p>Cybersecurity assessments for modern businesses.</p><span className="footer-meta">© 2026 Norivex Cyber · Built with care</span></footer>
     </main>
