@@ -20,9 +20,7 @@ type FormSubmitEvent = { preventDefault: () => void };
 function Reveal({ children, className = '' }: { children: React.ReactNode; className?: string }) { return <div className={`reveal ${className}`}>{children}</div>; }
 
 function FounderPortrait() {
-  const [imageFailed, setImageFailed] = useState(false);
-
-  return <div className="founder-portrait-frame"><div className="portrait-media"><img src={imageFailed ? '/connor-headshot-placeholder.svg' : '/connor-headshot.jpg'} alt={imageFailed ? 'Portrait placeholder for Connor, founder of Norivex Cyber.' : 'Connor, founder of Norivex Cyber.'} loading="lazy" decoding="async" onError={() => setImageFailed(true)} /></div><div className="portrait-caption"><span>Founder / Norivex Cyber</span><span>Martinsville, Virginia</span></div></div>;
+  return <div className="founder-portrait-frame"><div className="portrait-media"><img src="/connor-headshot.png" alt="Connor, Founder of Norivex Cyber" loading="lazy" decoding="async" /></div><div className="portrait-caption"><span>Founder / Norivex Cyber</span><span>Martinsville, Virginia</span></div></div>;
 }
 
 export default function Home() {
