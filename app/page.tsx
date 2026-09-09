@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { ArrowUpRight, Check, ChevronDown, CircleCheck, ExternalLink, Fingerprint, LockKeyhole, Menu, Radar, ShieldCheck, X, Zap } from 'lucide-react';
 
 const services = [
@@ -23,7 +22,7 @@ function Reveal({ children, className = '' }: { children: React.ReactNode; class
 function FounderPortrait() {
   const [imageFailed, setImageFailed] = useState(false);
 
-  return <div className="founder-portrait-frame"><div className="portrait-media"><Image src={imageFailed ? '/connor-headshot-placeholder.svg' : '/connor-headshot.jpg'} alt={imageFailed ? 'Portrait placeholder for Connor, founder of Norivex Cyber.' : 'Connor, founder of Norivex Cyber.'} fill sizes="(max-width: 900px) 100vw, 35vw" className="founder-portrait-image" onError={() => setImageFailed(true)} /></div><div className="portrait-caption"><span>Founder / Norivex Cyber</span><span>Martinsville, Virginia</span></div></div>;
+  return <div className="founder-portrait-frame"><div className="portrait-media"><img src={imageFailed ? '/connor-headshot-placeholder.svg' : '/connor-headshot.jpg'} alt={imageFailed ? 'Portrait placeholder for Connor, founder of Norivex Cyber.' : 'Connor, founder of Norivex Cyber.'} loading="lazy" decoding="async" onError={() => setImageFailed(true)} /></div><div className="portrait-caption"><span>Founder / Norivex Cyber</span><span>Martinsville, Virginia</span></div></div>;
 }
 
 export default function Home() {
